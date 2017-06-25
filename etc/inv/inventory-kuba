@@ -10,7 +10,4 @@ ansible_ssh_user = ubuntu
 localhost ansible_connection=local ansible_python_interpreter="/usr/bin/env python"
 
 [spot]
-54.165.216.243
-52.91.139.96
-52.89.239.220 ansible_ssh_private_key_file=~/.ssh/kuba_aws.pem
-54.71.206.87 ansible_ssh_private_key_file=~/.ssh/kuba_oregon1705.pem
+35.166.118.247 ansible_ssh_private_key_file=~/.ssh/kuba_oregon1705.pem
