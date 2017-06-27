@@ -1,0 +1,133 @@
+- debug: msg="{{ generic_vpc }}"
+
+    - name: "Find spot computation instnace"
+      ec2_remote_facts:
+        region: "{{ region }}"
+        filters:
+          instance-state-name: running
+          "tag:spot_computation": True 
+      register: ec2_spot
+      tags: [ find, create, destroy ]  
+
+    - name: "Print spot instances facts"
+      debug:
+        msg: "{{ ec2_spot }}"
+      tags: [ find, create, destroy ]
+      when: ec2_spot
+
+     
+    - name: "Treminate spot instances"
+      ec2:
+        state: "absent"
+        region: "{{ region }}"
+        instance_ids: "{{ item.id }}"
+        wait: true
+      with_items: "{{ ec2_spot.instances }}"
+      when: ec2_spot.instances.0.tags.spot_computation == "True"
+      tags: [ destroy ] 
+
+- name: Provision instance(s)
+  ec2:
+      region: "{{ region | default('eu-central-1') }}"
+      key_name: "{{ key | default('kuba_aws_west2') }}"
+      group: "{{ sg_group | default(generic_vpc.security_groups.name) }}" 
+      instance_type: "{{ type | default('t2.medium') }}"
+      image: "{{ ami | default('ami-47a23a30') }}"
+      vpc_subnet_id: "{{ subnet | default(vpc.subnets[0].id) }}"
+      wait: yes
+      spot_wait_timeout: 600
+      spot_price: 1
+      exact_count: "{{ count | default(1) }}"
+      source_dest_check: "{{ source_dest_check | default(True) }}"
+      count_tag:
+          role: "{{ host_role | default('spot') }}"
+          instance_tag: "{{ generic_vpc.ec2_eip.instance_A.tag }}"
+      instance_tags:
+          Name: "{{ generic_vpc.ec2_eip.instance_A.name }}" 
+          state_tag: initial
+          instance_tag: "{{ generic_vpc.ec2_eip.instance_A.tag }}"
+          instance_group: "{{ generic_vpc.instance_group }}"
+          counter: spot-{{env_name}}
+          allow_change: True
+          location: "{{ location |default('frankfurt') }}"
+          role: "{{ host_role | default('spot') }}"
+          spot_computation: True
+      volumes:
+          - device_name: /dev/sda1
+            device_type: gp2
+            volume_size: "{{ disk | default(15) }}"
+            delete_on_termination: "{{ delete_disk | default(True) }}"
+          - device_name: /dev/sdb
+            device_type: gp2
+            volume_size: "{{ diskB | default(0) }}"
+            delete_on_termination: "{{ delete_disk | default(True) }}"
+            #iops: 50
+      assign_public_ip: Yes
+  register: ec2
+  when: "{{ ec2_spot.instances|length }} == 0"
+  tags: [ create ] 
+
+- name: Check if we did create a new instance 
+  debug: msg="NO NEW INSTANCE CREATED"
+  when: "{{ ec2.instances | length }} == 0 "
+
+- name: NEW INSTANCES (ec2.instances)
+  local_action: debug var={{ item }}  
+  with_items: ec2.instances
+
+- name: PRESENT BEFORE instances (ec2.tagged_instances)
+  local_action: debug var={{ item }}  
+  with_items: ec2.tagged_instances
+
+- name: Assign Elastic IP to instance A (ec2.tagged_instances[0].id)
+  ec2_eip:
+    region: "{{ region | default('eu-central-1') }}"
+    ip: "{{ generic_vpc.ec2_eip.instance_A.ip }}"
+    instance_id: "{{ ec2.tagged_instances[0].id }}"
+
+- name: List instance A tags
+  ec2_tag:
+    region: "{{ region | default('eu-central-1') }}"
+    resource: "{{ ec2.tagged_instances[0].id }}"
+    state: list
+  register: tmp_tags
+
+- debug: msg="{{ tmp_tags }}"
+
+- name: Wait for instances to listen on port 22
+  wait_for:
+      state: started 
+      host: "{{ item.public_ip }}"
+      port: 22 
+      timeout: 150 
+      delay: 5
+  delegate_to: localhost
+  with_items: "{{ ec2.tagged_instances }}"
+
+- name: Fix .ssh/known_hosts.
+  local_action: command  ssh-keygen -f ~/.ssh/known_hosts -R {{ item.public_ip }}
+  when: item.public_ip is defined and item.public_ip != 'null'
+  with_items: "{{ ec2.tagged_instances }}"
+  ignore_errors: True
+  changed_when: False
+      
+- name: Get rid of SSH "Are you sure you want to continue connecting (yes/no)?" query
+  local_action: command sh -c 'ssh-keyscan -H {{ item.public_ip }} >>$HOME/.ssh/known_hosts'
+  with_items: "{{ ec2.tagged_instances }}"
+  ignore_errors: True
+  changed_when: False
+ 
+- name: Add instances to host group
+  local_action: add_host hostname={{ item.public_ip }} groupname=temp_group
+  with_items: "{{ ec2.tagged_instances }}"
+
+- name: List instance tags
+  ec2_tag:
+    region: "{{ region | default('eu-central-1') }}"
+    resource: "{{ item.id }}"
+    state: list
+  with_items: "{{ ec2.tagged_instances }}"
+
+- debug: msg="{{ item.tags.Name }}"
+  with_items: "{{ ec2.tagged_instances }}"
+

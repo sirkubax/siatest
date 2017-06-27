@@ -1,0 +1,210 @@
+###
+# EXAMPLE
+#
+#   ansible-playbook etc/playbooks/computation_spot_instances.yml -e "hostname=prd-model-computation203" 
+#
+#  - where hostname must be setup as uniq, and please remember that there are slave disks connected, so before 
+#    recreate new instances, disks must be dettached!
+#
+###
+
+- name: "Create AWS spot instance"
+  hosts: localhost
+  connection: local
+  gather_facts: False
+
+  vars:
+    ami: "ami-7bc7d51d"
+    region: "eu-west-1"
+    subnet: "subnet-cd01abba"
+    key: "kubik_aws_ir"
+    sg: "so1dmz-private"
+    type: "r4.8xlarge"
+    ansible_ssh_private_key_file: "~/.ssh/kubik_aws_ir.pem"
+    hostname: "prd-model-computation202"
+
+  tasks:
+
+    - name: "Trigger cleanup DNS"
+      uri:
+        url: "http://jenkins.so1.net/job/Ansible-Update-GoogleDNS-Prod/build?token=iFBDOBhNhaxL4T9ass93HRXun2JF161Za"
+        method: GET
+        user: jenkinsRO
+        password: 7d22f2eea5f8274125fd71bcd35f2b94
+        force_basic_auth: yes
+        status_code: 201
+      tags: [ create, dns, destroy ]
+
+    - name: "Find spot computation instnace"
+      ec2_remote_facts:
+        region: "{{ region }}"
+        filters:
+          instance-state-name: running
+          "tag:spot_computation": True 
+      register: ec2_spot
+      tags: [ find, create, destroy ]  
+     
+    - name: "Print spot instances facts"
+      debug:
+        msg: "{{ ec2_spot }}"
+      tags: [ find, create, destroy ]
+      when: ec2_spot
+
+    - name: "Treminate spot instances"
+      ec2:
+        state: "absent"
+        region: "{{ region }}"
+        instance_ids: "{{ item.id }}"
+        wait: true
+      with_items: "{{ ec2_spot.instances }}"
+      when: ec2_spot.instances.0.tags.spot_computation == "True"
+      tags: [ destroy ] 
+
+    - name: "Provision a set of instances"
+      ec2:
+        region: "{{ region }}"
+        key_name: "{{ key }}"
+        group: "{{ sg }}"
+        instance_type: "{{ type }}"
+        spot_wait_timeout: 600
+        spot_price: 1
+        image: "{{ ami }}"
+        vpc_subnet_id: "{{ subnet }}"
+        wait: yes
+        exact_count: 1
+        count_tag:
+          Name: "{{ hostname }}"
+        instance_tags:
+          Name: "{{ hostname }}"
+          state_tag: initial
+          allow_change: True
+          location: "ireland"
+          role: "spot-computation"
+          so1_dns_overwrite_ip: True
+          so1_dns_dynamic: True
+          spot_computation: True
+        volumes:
+          - device_name: /dev/sda1
+            device_type: gp2
+            volume_size: "{{ disk | default(100) }}"
+            delete_on_termination: "{{ delete_disk | default(True) }}"
+      register: ec2
+      when: "{{ ec2_spot.instances|length }} == 0"
+      tags: [ create ]
+
+    - name: "Check state tag"
+      debug: msg="state tag initial in one or more instances, SKIPPING"
+      when: "{{ ec2.instances | length }} == 0"
+      tags: [ create ]
+
+    - name: "Add instances to host group"
+      local_action: add_host hostname={{ item.private_ip }} groupname=spot_group
+      with_items: "{{ ec2.instances }}"
+      tags: [ create ]
+
+    - name: "List new instances"
+      local_action: debug var={{ item }}
+      with_items: "{{ ec2.instances }}"
+      tags: [ create ]
+
+
+    - name: "Connect /data2 storage"
+      ec2_vol:
+        instance: "{{ item.id }}"
+        id: "vol-0a18857da4f8cfdf8"
+        device_name: /dev/sdf
+        region: "eu-west-1"
+        delete_on_termination: no
+      with_items: "{{ ec2.instances }}"
+      tags: [ create ]
+
+
+    - name: "Connect /home/cross_retailer_pvr"
+      ec2_vol:
+        instance: "{{ item.id }}"
+        id: "vol-0c7d124d0ebee0b97"
+        device_name: /dev/sdg
+        region: "eu-west-1"
+        delete_on_termination: no
+      with_items: "{{ ec2.instances }}"
+      tags: [ create ]
+
+
+    - name: "Wait for instances to listen on port 22"
+      local_action: wait_for state=started host={{ item.private_ip }} port=22 timeout=150 delay=15
+      with_items: "{{ ec2.instances }}"
+      tags: [ create ]
+
+
+    - name: "Trigger update DNS"
+      uri:
+        url: http://jenkins.so1.net/job/Ansible-Update-GoogleDNS-Prod/build?token=iFBDOBhNhaxL4T9ass93HRXun2JF161Za
+        method: POST
+        user: 'jenkinsRO'
+        password: '7d22f2eea5f8274125fd71bcd35f2b94'
+        force_basic_auth: yes
+        status_code: 201
+      tags: [ create, dns, destroy ]
+
+    - name: "Change tags entry"
+      ec2_tag: resource={{ item.id }} region={{ item.region }}
+      args:
+        tags:
+          state_tag: prepared
+      with_items: "{{ ec2.instances }}" 
+      tags: [ create ]
+
+  
+- name: "Configure spot instance"
+  hosts: spot_group
+  become: true
+  gather_facts: false
+
+  vars:
+    hostname: "prd-model-computation202"
+
+  tasks:
+
+    - name: "Gather facts"
+      action: ec2_facts
+      tags: [ create ]
+
+    - name: "Fix hostname /etc/hostname"
+      shell: echo '{{ hostname }}' > /etc/hostname  
+      tags: [ create ]
+
+    - name: "Fix hostname /etc/hosts"
+      shell: >
+        echo "127.0.0.1 localhost\n{{ ansible_ec2_local_ipv4 }} {{ hostname }}.dyn.so1.net {{ hostname }}\n" > /etc/hosts 
+      tags: [ create ]
+
+    - name: "Set hostname"
+      shell: >
+        hostname {{ hostname }}
+      tags: [ create ]
+         
+    - name: "Mount /data2"
+      mount:
+        name: /data2
+        src: /dev/xvdf1
+        fstype: ext4
+        state: mounted
+      tags: [ create ]
+ 
+    - name: "Mount /home/cross_retailer_pvr"
+      mount:
+        name: /home/cross_retailer_pvr
+        src: /dev/xvdg
+        fstype: ext4
+        state: mounted
+      tags: [ create ]
+
+    - name: "Instruction:"
+      shell: >
+        echo "\n\n\n\nExecute:\n\n\tssh {{ ansible_ec2_local_ipv4 }} -l ubuntu\n\nDNS resolving will be ready in 5min\n"
+      register: output
+      tags: [ create ]
+
+    - name: "Output for user:"
+      debug:
+        msg: "{{ output }}"

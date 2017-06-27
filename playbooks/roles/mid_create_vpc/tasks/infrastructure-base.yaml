@@ -1,6 +1,6 @@
   - debug: msg="{{ generic_vpc }}"
 
-  - name: Check szkolenie VPC existence
+  - name: Check spot VPC existence
     ec2_vpc:
         cidr_block: "{{ generic_vpc.vpc.cidr_block }}"
         region: "{{region}}"
@@ -14,7 +14,7 @@
     register: vpc
 
 # Do not lunch when allow_vpc_change is not defined - a flag to prevent automatic change on PRD vpc 
-  - name: Update szkolenie VPC configuration
+  - name: Update spot VPC configuration
     ec2_vpc:
         cidr_block: "{{ generic_vpc.vpc.cidr_block }}" 
         region: "{{region}}"
@@ -28,7 +28,7 @@
         wait: yes
     when: vpc_id is not defined and vpc.changed and allow_vpc_change is defined and allow_vpc_change == True
 
-  - name: Create szkolenie {{env_name}} security group
+  - name: Create spot {{env_name}} security group
     local_action:
         module: ec2_group
         name: "{{ generic_vpc.security_groups.name }}"
