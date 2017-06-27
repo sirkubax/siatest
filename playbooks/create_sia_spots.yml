@@ -38,10 +38,10 @@
 
 #############################
 # Part 3:                   
-# Set hostname
+# install python 2.x
 #############################
 
-- name: Set instance hostname
+- name: prepare ubuntu 16.04 python
   hosts: temp_group
   gather_facts: False
 
@@ -56,17 +56,11 @@
           ansible_ssh_private_key_file: "{{ ssh_key }}"
         when: ssh_key is defined
 
-
   tasks:
       - name: install python 2
         raw: bash -c "test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)"
         become: true
 
-
-#  - name: Ensure IP forwarding enabled
-#    sysctl: name=net.ipv4.ip_forward value=1
-#    become: True
-  
 #############################
 # Part 3:                   
 # Apply default roles to tagged instances 
@@ -129,12 +123,11 @@
   tasks:
     - name: Change tags
       #ec2_tag: resource={{ ansible_ec2_instance_id }} {{ ansible_ec2_placement_region }}
-      #boto region bug
-      ec2_tag: resource={{ ansible_ec2_instance_id }} ec2_url=https://ec2.eu-west-2.amazonaws.com
+      #boto region bug - ec2_url #may be already fixed
+      ec2_tag: resource={{ ansible_ec2_instance_id }} ec2_url=https://ec2.us-west-2.amazonaws.com
       args:
           tags:
               state_tag: prepared
-#              Name: "{{ hostname_base }}"
       delegate_to: localhost
 
     - name: Get rid of SSH "Are you sure you want to continue connecting (yes/no)?" query
