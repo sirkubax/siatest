@@ -1,30 +1,30 @@
 - debug: msg="{{ generic_vpc }}"
 
-    - name: "Find spot computation instnace"
-      ec2_remote_facts:
-        region: "{{ region }}"
-        filters:
-          instance-state-name: running
-          "tag:spot_computation": True 
-      register: ec2_spot
-      tags: [ find, create, destroy ]  
+- name: "Find spot computation instnace"
+  ec2_remote_facts:
+    region: "{{ region }}"
+    filters:
+      instance-state-name: running
+      "tag:spot_computation": True 
+  register: ec2_spot
+  tags: [ find, create, destroy ]  
 
-    - name: "Print spot instances facts"
-      debug:
-        msg: "{{ ec2_spot }}"
-      tags: [ find, create, destroy ]
-      when: ec2_spot
+- name: "Print spot instances facts"
+  debug:
+    msg: "{{ ec2_spot }}"
+  tags: [ find, create, destroy ]
+  when: ec2_spot
 
-     
-    - name: "Treminate spot instances"
-      ec2:
-        state: "absent"
-        region: "{{ region }}"
-        instance_ids: "{{ item.id }}"
-        wait: true
-      with_items: "{{ ec2_spot.instances }}"
-      when: ec2_spot.instances.0.tags.spot_computation == "True"
-      tags: [ destroy ] 
+ 
+- name: "Treminate spot instances"
+  ec2:
+    state: "absent"
+    region: "{{ region }}"
+    instance_ids: "{{ item.id }}"
+    wait: true
+  with_items: "{{ ec2_spot.instances }}"
+  when: ec2_spot.instances.0.tags.spot_computation == "True"
+  tags: [ destroy ] 
 
 - name: Provision instance(s)
   ec2:

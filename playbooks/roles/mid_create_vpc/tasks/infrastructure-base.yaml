@@ -3,7 +3,7 @@
   - name: Check spot VPC existence
     ec2_vpc:
         cidr_block: "{{ generic_vpc.vpc.cidr_block }}"
-        region: "{{region}}"
+        region: "{{ region }}"
         internet_gateway: True
         resource_tags:
             Name:  "{{ generic_vpc.vpc.name }}"
