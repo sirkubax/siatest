@@ -1,14 +1,17 @@
 ---
+# The vars should be placed in a structure, but I'd like to implicite show all importatnt variables here
+#
+
 ami: ami-efd0428f
 region: us-west-2
 #subnet: subnet-c068828d
 sg: spot-security-group
 key: kuba_oregon.1705
-ansible_ssh_private_key_file: '~/.ssh/kuba_oregon.1705.pem'
 location: oregon
 assign_public_ip: True
-ansible_ssh_private_key_file: '~/.ssh/kuba_oregon.1705.pem' #key to log into
-ssh_key: '~/.ssh/kuba_oregon.1705.pem' #Your ssh key that is used to create the instance
+ansible_ssh_private_key_file: '~/.ssh/kuba_oregon1705.pem' #key to log into
+ansible_ssh_user: ubuntu
+ssh_key: '~/.ssh/kuba_oregon1705.pem' #Your ssh key that is used to create the instance
 #type: p2.xlarge
 type: g2.2xlarge
 
@@ -68,10 +71,6 @@ spot_vpc:
             from_port: 22
             to_port: 22
             cidr_ip: 35.177.228.4/32 #mgmt 
-          - proto: tcp
-            from_port: 22
-            to_port: 22
-            cidr_ip: "{{ current_ip | default('1.2.3.4/32') }}"
           - proto: icmp
             from_port: -1
             to_port: -1

@@ -1,4 +1,3 @@
-###
 #############################
 # Part 1:                   
 # Create instances VPN_1 
@@ -27,28 +26,12 @@
       - { role: mid_create_vpc }
 
 #############################
-# Part 2:                   
-# Create instances
-#############################
-
-- hosts: localhost
-  connection: local
-  gather_facts: False
-
-
-  vars:
-  - vars_files_var: ["../../../vars/spot_vpc.yml"]
-
-  roles:
-    - { role: sys_create_aws_spot, source_dest_check: False, terminate_spots: True }
-
-#############################
 # Part 3:                   
 # install python 2.x
 #############################
 
 - name: prepare ubuntu 16.04 python
-  hosts: temp_group
+  hosts: tag_role_spot
   gather_facts: False
 
   vars:
@@ -76,7 +59,7 @@
 #############################
 
 - name: Apply default roles to tagged instances 
-  hosts: temp_group
+  hosts: tag_role_spot
   become: True
 
   roles:
@@ -90,7 +73,7 @@
 #############################
 
 - name: Set instance hostname
-  hosts: temp_group
+  hosts: tag_role_spot
   gather_facts: False
 
   vars:
@@ -125,7 +108,7 @@
 # change tags 
 #########################################
 
-- hosts: temp_group
+- hosts: tag_role_spot
   gather_facts: False
   connection: local
 
