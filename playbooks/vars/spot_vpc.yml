@@ -78,6 +78,6 @@ spot_vpc:
     ec2_eip:
         instance_A:
           tag: 1A
-          ip: 1.2.3.4
+          ip: 35.166.142.192 #this can be fake - new EIP would be assigned (remember to clean)
           name: 'stg-spot-test103'
     instance_group: spot1

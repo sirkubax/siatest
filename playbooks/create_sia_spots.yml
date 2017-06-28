@@ -142,3 +142,4 @@
     - name: Get rid of SSH "Are you sure you want to continue connecting (yes/no)?" query
       local_action: command sh -c 'ssh-keyscan -t rsa {{ item }} >>$HOME/.ssh/known_hosts'
       with_items: "{{ play_hosts }}"
+

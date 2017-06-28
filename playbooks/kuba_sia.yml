@@ -73,6 +73,6 @@
 
   #curl -i -A "Sia-Agent" -X POST localhost:9980/wallet/unlock?encryptionpassword=
 
-  - name: startsiad
+  - name: startsiaminer
     shell: "screen -S siaminer -d -m sh -c 'cd ~/siaminer; ./sia-gpu-miner; exec bash'"
 

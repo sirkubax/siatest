@@ -125,3 +125,15 @@
     - name: Get rid of SSH "Are you sure you want to continue connecting (yes/no)?" query
       local_action: command sh -c 'ssh-keyscan -t rsa {{ item }} >>$HOME/.ssh/known_hosts'
       with_items: "{{ play_hosts }}"
+
+#############################
+# Part 5:                   
+# run SIA
+#############################
+
+- name: Apply default roles to tagged instances 
+  hosts: tag_role_spot
+  become: True
+
+  roles:
+      - app_sia

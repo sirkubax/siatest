@@ -49,10 +49,17 @@
 - name: startsiad
   shell: "screen -S siad -d -m sh -c 'cd ~/siad/Sia-v1.2.1-linux-amd64; ./siad -M cghmrtw; exec bash'"
 
-#- name: startsiac
-#  shell: "screen -S siac -d -m sh -c 'cd ~/siad/Sia-v1.2.1-linux-amd64; ./siac wallet init; exec bash'"
-#- name: startsiac unlock wallet
-#  shell: "screen -S siac -d -m sh -c 'cd ~/siad/Sia-v1.2.1-linux-amd64; ./siac wallet unlock; exec bash'"
+- name: startsiac
+  shell: "screen -S siac -d -m sh -c 'cd ~/siad/Sia-v1.2.1-linux-amd64; ./siac wallet init > /root/wallet.pass ; exec bash'"
+  register: siainit
+  args:
+    creates: /root/wallet.pass
+
+- name: get wallet pass
+  set_facts:
+    wallet_pass: "{{ lookup('file', '/root/wallet.pass') }}"
+- name: startsiac unlock wallet
+  shell: "screen -S siac -d -m sh -c 'cd ~/siad/Sia-v1.2.1-linux-amd64; ./siac wallet unlock; exec bash'"
 
 #curl -i -A "Sia-Agent" -X POST localhost:9980/wallet/unlock?encryptionpassword=
 
