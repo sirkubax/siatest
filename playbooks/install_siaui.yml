@@ -23,9 +23,9 @@
           - { url: "https://github.com/NebulousLabs/Sia/releases/download/{{ sia_version }}/Sia-{{ sia_version }}-linux-amd64.zip", path: "~/siad" }
           - { url: "https://github.com/NebulousLabs/Sia-UI/releases/download/{{ siaUI_version }}/Sia-UI-{{ siaUI_version }}-linux-x64.zip", path: "~/siaui" }
     
-    - name: install siad
+    - name: unzip siad
       shell: "cd ~/siad; unzip -uo Sia-{{ sia_version }}-linux-amd64.zip"
-    - name: install siaui
+    - name: unzip siaui
       shell: "cd ~/siaui; unzip -uo Sia-UI-{{ siaUI_version }}-linux-x64.zip"
     
     - name: startsiad
@@ -40,6 +40,7 @@
     - name: get wallet pass
       set_fact:
         wallet_pass: "{{ lookup('file', '~/wallet.pass') }}"
+
     - name: startsiac unlock wallet
       shell: "screen -S siawalletunlock -d -m bash -c 'cd ~/siad/Sia-{{ sia_version }}-linux-amd64; cat ~/wallet.pass |grep Wallet -A 1 |tail -1 | ./siac wallet unlock; exec bash'"
   
