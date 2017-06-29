@@ -1,9 +1,25 @@
   - debug: msg="{{ generic_vpc }}"
+  - debug: msg="{{ generic_vpc.security_groups.rules }}"
+  - debug: msg="{{ pub_ip }}"
 
-  - name: Check szkolenie VPC existence
+  - set_fact: 
+      my_pub_ip_SG_rule:
+        - proto: tcp                                                      
+          from_port: 22                                                   
+          to_port: 22                                                     
+          cidr_ip: "{{ pub_ip.ansible_facts.ipify_public_ip }}/32"
+
+  - debug: msg="{{ my_pub_ip_SG_rule }}"
+  - set_fact: 
+        security_groups_whatismyip:
+          rules: "{{ generic_vpc.security_groups.rules + my_pub_ip_SG_rule }}"
+  - debug: msg="{{ security_groups_whatismyip }}"
+  - debug: msg="{{ generic_vpc }}"
+
+  - name: Check spot VPC existence
     ec2_vpc:
         cidr_block: "{{ generic_vpc.vpc.cidr_block }}"
-        region: "{{region}}"
+        region: "{{ region }}"
         internet_gateway: True
         resource_tags:
             Name:  "{{ generic_vpc.vpc.name }}"
@@ -14,7 +30,7 @@
     register: vpc
 
 # Do not lunch when allow_vpc_change is not defined - a flag to prevent automatic change on PRD vpc 
-  - name: Update szkolenie VPC configuration
+  - name: Update spot VPC configuration
     ec2_vpc:
         cidr_block: "{{ generic_vpc.vpc.cidr_block }}" 
         region: "{{region}}"
@@ -28,7 +44,7 @@
         wait: yes
     when: vpc_id is not defined and vpc.changed and allow_vpc_change is defined and allow_vpc_change == True
 
-  - name: Create szkolenie {{env_name}} security group
+  - name: Create spot {{env_name}} security group
     local_action:
         module: ec2_group
         name: "{{ generic_vpc.security_groups.name }}"
@@ -36,4 +52,4 @@
         vpc_id: "{{ vpc_id |default(vpc.vpc_id) }}"
         region: "{{ region }}"
         rules:
-            "{{ generic_vpc.security_groups.rules }}"
+            "{{ security_groups_whatismyip.rules }}"

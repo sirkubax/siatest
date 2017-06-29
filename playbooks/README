@@ -1,0 +1,13 @@
+#Set aws user credentials (IAM console)
+# file ~/.boto 
+
+# [Credentials]
+# aws_access_key_id = xxx
+# aws_secret_access_key = xxx
+
+
+#Run 
+
+ansible-playbook  playbooks/create_sia_spots.yml
+ansible-playbook  playbooks/update_sia_spots.yml -i etc/inv/ec2.py
+

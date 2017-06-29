@@ -1,0 +1,46 @@
+---
+- name: install sia UI
+  hosts: localhost
+
+  vars:
+      sia_version: v1.2.2
+      siaUI_version: v1.2.2
+  
+  tasks:
+    - name: mkdir sia
+      file: 
+        path: "~/{{ item }}"
+        state: directory
+      with_items:
+          - siad
+          - siaui
+    
+    - name: get sia
+      get_url:
+          url: "{{ item.url }}"
+          dest: "{{ item.path }}"
+      with_items:
+          - { url: "https://github.com/NebulousLabs/Sia/releases/download/{{ sia_version }}/Sia-{{ sia_version }}-linux-amd64.zip", path: "~/siad" }
+          - { url: "https://github.com/NebulousLabs/Sia-UI/releases/download/{{ siaUI_version }}/Sia-UI-{{ siaUI_version }}-linux-x64.zip", path: "~/siaui" }
+    
+    - name: unzip siad
+      shell: "cd ~/siad; unzip -uo Sia-{{ sia_version }}-linux-amd64.zip"
+    - name: unzip siaui
+      shell: "cd ~/siaui; unzip -uo Sia-UI-{{ siaUI_version }}-linux-x64.zip"
+    
+    - name: startsiad
+      shell: "screen -S siad -d -m sh -c 'cd ~/siad/Sia-{{ sia_version }}-linux-amd64; ./siad -M cghmrtw || exec bash'"
+    
+    - name: init wallet
+      shell: "screen -S siawalletinit -d -m bash -c 'sleep 10; cd ~/siad/Sia-{{ siaUI_version }}-linux-amd64; ./siac wallet init >> ~/wallet.pass ; exec bash'"
+      register: siainit
+      args:
+        creates: ~/wallet.pass.create
+    
+    - name: get wallet pass
+      set_fact:
+        wallet_pass: "{{ lookup('file', '~/wallet.pass') }}"
+
+    - name: startsiac unlock wallet
+      shell: "screen -S siawalletunlock -d -m bash -c 'cd ~/siad/Sia-{{ sia_version }}-linux-amd64; cat ~/wallet.pass |grep Wallet -A 1 |tail -1 | ./siac wallet unlock; exec bash'"
+  

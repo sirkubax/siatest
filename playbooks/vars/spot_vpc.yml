@@ -1,0 +1,63 @@
+---
+# The vars should be placed in a structure, but I'd like to implicite show all important variables here
+#
+
+ami: ami-efd0428f
+region: us-west-2
+#subnet: subnet-c068828d
+sg: spot-security-group
+key: kuba_oregon.1705
+location: oregon
+assign_public_ip: True
+ansible_ssh_private_key_file: '~/.ssh/kuba_oregon1705.pem' #key to log into
+ansible_ssh_user: ubuntu
+ssh_key: '~/.ssh/kuba_oregon1705.pem' #Your ssh key that is used to create the instance
+#type: p2.xlarge
+type: g2.2xlarge
+
+role: siaspot
+env_name: 'spot'
+
+#allow change VPC (routing)
+allow_vpc_change: True
+
+# VPC
+spot_vpc: 
+    vpc:
+        name: spot
+        cidr_block: 10.218.0.0/22
+        subnets:
+          - cidr: 10.218.0.0/24
+            resource_tags:
+                Name: spot_pub
+    route:
+      - subnets:
+          - 10.218.0.0/24
+        routes:
+          - dest: 0.0.0.0/0
+            gw: igw
+        resource_tags:
+          Name:  spot default route
+
+    security_groups:
+        name: spot-security-group
+        description: spot SG
+        rules:
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: 10.218.0.0/24 
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: 35.177.228.4/32 #mgmt 
+          - proto: icmp
+            from_port: -1
+            to_port: -1
+            cidr_ip: 0.0.0.0/0
+    ec2_eip:
+        instance_A:
+          tag: 1A
+          ip: 35.166.142.192 #this can be fake - new EIP would be assigned (remember to clean)
+          name: 'spot-test103'
+    instance_group: spot1

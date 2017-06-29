@@ -1,0 +1,68 @@
+---
+- name: install packages
+  apt: name={{ item }}
+  with_items:
+    - opencl-headers
+    - libcurl4-gnutls-dev
+    - nvidia-libopencl1-375
+    - ubuntu-drivers-common
+
+- name: relink
+  shell: ln -snf /usr/lib/x86_64-linux-gnu/libOpenCL.so.1 /usr/lib/libOpenCL.so
+
+- name: mkdir sia
+  file: 
+    path: "~/{{ item }}"
+    state: directory
+  with_items:
+      - siad
+      - siaui
+      - siaminer
+
+- name: get sia-gpu-miner
+  get_url:
+      url: "{{ item.url }}"
+      dest: "{{ item.path }}"
+  with_items:
+      - { url: "https://github.com/NebulousLabs/Sia-GPU-Miner/releases/download/{{ siaminer_version }}/sia-gpu-miner-{{ siaminer_version }}-linux64.zip", path: "~/siaminer" }
+      - { url: "https://github.com/NebulousLabs/Sia/releases/download/{{ sia_version }}/Sia-{{ sia_version }}-linux-amd64.zip", path: "~/siad" }
+      - { url: "https://github.com/NebulousLabs/Sia-UI/releases/download/{{ siaUI_version }}/Sia-UI-{{ siaUI_version }}-linux-x64.zip", path: "~/siaui" }
+
+- name: install repository
+  apt_repository: repo={{ item }} validate_certs={{ validate_certs |default(True) }}
+  with_items:
+    - ppa:graphics-drivers/ppa
+
+- name: install packages
+  apt: name={{ item }}
+  with_items:
+    - nvidia-cuda-toolkit
+    - libxss1
+
+- name: unzip siaminer
+  shell: "cd ~/siaminer; unzip -uo sia-gpu-miner-{{ siaminer_version }}-linux64.zip"
+- name: unzip siad
+  shell: "cd ~/siad; unzip -uo Sia-{{ sia_version }}-linux-amd64.zip"
+- name: unzip siaui
+  shell: "cd ~/siaui; unzip -uo Sia-UI-{{ siaUI_version }}-linux-x64.zip"
+
+- name: startsiad
+  shell: "screen -S siad -d -m sh -c 'cd ~/siad/Sia-{{ sia_version }}-linux-amd64; ./siad -M cghmrtw; exec bash'"
+
+#Todo deplace sleep with wallet init check
+- name: init wallet
+  shell: "screen -S siawalletinit -d -m bash -c 'sleep 10; cd ~/siad/Sia-{{ siaUI_version }}-linux-amd64; ./siac wallet init >> ~/wallet.pass ; exec bash'"
+  register: siainit
+  args:
+    creates: ~/wallet.pass.create
+
+- name: get wallet pass
+  set_fact:
+    wallet_pass: "{{ lookup('file', '~/wallet.pass') }}"
+
+- name: startsiac unlock wallet
+  shell: "screen -S siawalletunlock -d -m bash -c 'sleep 10; cd ~/siad/Sia-{{ sia_version }}-linux-amd64; cat ~/wallet.pass |grep Wallet -A 1 |tail -1 | ./siac wallet unlock; exec bash'"
+  
+- name: startsiad
+  shell: "screen -S siaminer -d -m bash -c 'cd ~/siaminer; ./sia-gpu-miner; exec bash'"
+

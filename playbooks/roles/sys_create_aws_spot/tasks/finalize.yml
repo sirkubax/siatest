@@ -2,38 +2,46 @@
 #
 # Then it localy fix known_hosts and returns dynamic temporary temp_group that is used in further part of the provisioning
 #
-
 - name: Check provisioned instances (note that instance_order tag is skipped, and the instance_group is checked to match quota)
   ec2:
       region: "{{ region | default('eu-central-1') }}"
-      key_name: "{{ key | default('kuba_aws') }}"
+      key_name: "{{ key | default('kuba_aws_west2') }}"
       group: "{{ sg_group | default(generic_vpc.security_groups.name) }}" 
       instance_type: "{{ type | default('t2.medium') }}"
       image: "{{ ami | default('ami-47a23a30') }}"
       vpc_subnet_id: "{{ subnet | default(vpc.subnets[0].id) }}"
       wait: yes
+      spot_wait_timeout: 600
+      spot_price: 1
       exact_count: "{{ count | default(1) }}"
       source_dest_check: "{{ source_dest_check | default(True) }}"
       count_tag:
-          role: "{{ host_role | default('szkolenie') }}"
-          instance_group: "{{ generic_vpc.instance_group }}"
+          role: "{{ host_role | default('spot') }}"
+          instance_tag: "{{ generic_vpc.ec2_eip.instance_A.tag }}"
       instance_tags:
-          counter: szkolenie-{{env_name}}
+          Name: "{{ generic_vpc.ec2_eip.instance_A.name }}" 
+          state_tag: initial
+          instance_tag: "{{ generic_vpc.ec2_eip.instance_A.tag }}"
+          instance_group: "{{ generic_vpc.instance_group }}"
+          counter: spot-{{env_name}}
           allow_change: True
           location: "{{ location |default('frankfurt') }}"
-          role: "{{ host_role | default('szkolenie') }}"
+          role: "{{ host_role | default('spot') }}"
+          spot_computation: True
       volumes:
           - device_name: /dev/sda1
             device_type: gp2
-            volume_size: "{{ disk | default(55) }}"
+            volume_size: "{{ disk | default(15) }}"
             delete_on_termination: "{{ delete_disk | default(True) }}"
           - device_name: /dev/sdb
             device_type: gp2
             volume_size: "{{ diskB | default(0) }}"
             delete_on_termination: "{{ delete_disk | default(True) }}"
             #iops: 50
-      assign_public_ip: False
+      assign_public_ip: Yes
   register: ec2
+  when: "{{ ec2_spot.instances|length }} == 0"
+  tags: [ create ] 
 
 - name: Wait for instances to listen on port 22
   wait_for:
