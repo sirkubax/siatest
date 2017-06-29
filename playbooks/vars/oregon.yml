@@ -1,9 +1,0 @@
-ami: ami-efd0428f
-region: us-west-2
-subnet: subnet-c068828d
-sg: spot-security-group
-key: kuba_oregon.1705
-ansible_ssh_private_key_file: '~/.ssh/kuba_oregon.1705.pem'
-location: oregon
-assign_public_ip: True
-ec2_url: "https://ec2.us-west-2.amazonaws.com"
